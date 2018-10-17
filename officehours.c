@@ -138,7 +138,7 @@ void classa_enter()
   /* synchronization for the simulations variables below                  */
   /*  YOUR CODE HERE.                                                     */
 
-  // If there is someone from class b in the office...
+  // If there is someone from class b in the office...hold this thread.
   if(classb_inoffice != 0)
   {
     sem_wait(&hold_classa);
@@ -161,15 +161,11 @@ void classb_enter()
   /* synchronization for the simulations variables below                  */
   /*  YOUR CODE HERE.                                                     */ 
 
-  // If there is someone from class a in the office
+  // If there is someone from class a in the office... hold this thread
   if(classa_inoffice != 0)
   { 
     int val;
-    sem_getvalue(&hold_classb, &val);
-    printf("class b: %d\n", val);
     sem_wait(&hold_classb);
-    sem_getvalue(&hold_classb, &val);
-    printf("class b: %d\n", val);
   }
 
   students_in_office += 1;
@@ -200,6 +196,8 @@ static void classa_leave()
 
   students_in_office -= 1;
   classa_inoffice -= 1;
+
+  // If no one from class a is in office, unblock class b from entering if it is blocked
   int val;
   sem_getvalue(&hold_classb, &val);
   if(classa_inoffice == 0 && val == 0)
@@ -222,6 +220,8 @@ static void classb_leave()
 
   students_in_office -= 1;
   classb_inoffice -= 1;
+
+  // If no one from class b is in office, unblock class a from entering if it is blocked
   int val;
   sem_getvalue(&hold_classa, &val);
   if(classb_inoffice == 0 && val == 0)
