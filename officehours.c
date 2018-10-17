@@ -26,6 +26,11 @@
 
 /* TODO */
 /* Add your synchronization variables here */
+sem_t mutex; // Mutex for guarding critical regions
+sem_t hold_classa;
+sem_t hold_classb;
+sem_t hold_anyone;
+
 
 /* Basic information about simulation.  They are printed/checked at the end 
  * and in assert statements during execution.
@@ -62,6 +67,10 @@ static int initialize(student_info *si, char *filename)
    * other variables you might use) here
    */
 
+  sem_init(&mutex, 0, 1);
+  sem_init(&hold_classa, 0, 0);
+  sem_init(&hold_classb, 0, 0);
+  sem_init(&hold_anyone, 0, 0);
 
   /* Read in the data file and initialize the student array */
   FILE *fp;
@@ -124,11 +133,16 @@ void *professorthread(void *junk)
  */
 void classa_enter() 
 {
-
   /* TODO */
   /* Request permission to enter the office.  You might also want to add  */
   /* synchronization for the simulations variables below                  */
-  /*  YOUR CODE HERE.                                                     */ 
+  /*  YOUR CODE HERE.                                                     */
+
+  // If there is someone from class b in the office...
+  if(classb_inoffice != 0)
+  {
+    sem_wait(&hold_classa);
+  }
 
   students_in_office += 1;
   students_since_break += 1;
@@ -142,12 +156,21 @@ void classa_enter()
  */
 void classb_enter() 
 {
-
   /* TODO */
   /* Request permission to enter the office.  You might also want to add  */
   /* synchronization for the simulations variables below                  */
   /*  YOUR CODE HERE.                                                     */ 
 
+  // If there is someone from class a in the office
+  if(classa_inoffice != 0)
+  { 
+    int val;
+    sem_getvalue(&hold_classb, &val);
+    printf("class b: %d\n", val);
+    sem_wait(&hold_classb);
+    sem_getvalue(&hold_classb, &val);
+    printf("class b: %d\n", val);
+  }
 
   students_in_office += 1;
   students_since_break += 1;
@@ -177,6 +200,12 @@ static void classa_leave()
 
   students_in_office -= 1;
   classa_inoffice -= 1;
+  int val;
+  sem_getvalue(&hold_classb, &val);
+  if(classa_inoffice == 0 && val == 0)
+  {
+    sem_post(&hold_classb);
+  }
 
 }
 
@@ -193,7 +222,12 @@ static void classb_leave()
 
   students_in_office -= 1;
   classb_inoffice -= 1;
-
+  int val;
+  sem_getvalue(&hold_classa, &val);
+  if(classb_inoffice == 0 && val == 0)
+  {
+    sem_post(&hold_classa);
+  }
 }
 
 /* Main code for class A student threads.  
@@ -309,6 +343,7 @@ int main(int nargs, char **args)
 
     s_info[i].student_id = i;
     sleep(s_info[i].arrival_time);
+    // Remove later
                 
     student_type = random() % 2;
 
