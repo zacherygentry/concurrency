@@ -68,9 +68,9 @@ static int initialize(student_info *si, char *filename)
    */
 
   sem_init(&mutex, 0, 1);
-  sem_init(&hold_classa, 0, 0);
-  sem_init(&hold_classb, 0, 0);
-  sem_init(&hold_anyone, 0, 0);
+  sem_init(&hold_classa, 0, 1);
+  sem_init(&hold_classb, 0, 1);
+  sem_init(&hold_anyone, 0, 1);
 
   /* Read in the data file and initialize the student array */
   FILE *fp;
