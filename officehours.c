@@ -5,7 +5,6 @@
 
 */
 
-
 #include <pthread.h>
 #include <semaphore.h>
 #include <unistd.h>
@@ -27,10 +26,9 @@
 /* TODO */
 /* Add your synchronization variables here */
 sem_t mutex; // Mutex for guarding critical regions
-sem_t hold_classa;
-sem_t hold_classb;
-sem_t hold_anyone;
 
+static int A_mayenter = 1;
+static int B_mayenter = 1;
 
 /* Basic information about simulation.  They are printed/checked at the end 
  * and in assert statements during execution.
@@ -39,13 +37,12 @@ sem_t hold_anyone;
  * code that you develop. 
  */
 
-static int students_in_office;   /* Total numbers of students currently in the office */
-static int classa_inoffice;      /* Total numbers of students from class A currently in the office */
-static int classb_inoffice;      /* Total numbers of students from class B in the office */
+static int students_in_office; /* Total numbers of students currently in the office */
+static int classa_inoffice;    /* Total numbers of students from class A currently in the office */
+static int classb_inoffice;    /* Total numbers of students from class B in the office */
 static int students_since_break = 0;
 
-
-typedef struct 
+typedef struct
 {
   int arrival_time;  // time between the arrival of this student and the previous student
   int question_time; // time the student needs to spend with the professor
@@ -56,7 +53,7 @@ typedef struct
  * TODO: Create/initialize all synchronization
  * variables and other global variables that you add.
  */
-static int initialize(student_info *si, char *filename) 
+static int initialize(student_info *si, char *filename)
 {
   students_in_office = 0;
   classa_inoffice = 0;
@@ -67,166 +64,152 @@ static int initialize(student_info *si, char *filename)
    * other variables you might use) here
    */
 
-  sem_init(&mutex, 0, 1);
-  sem_init(&hold_classa, 0, 1);
-  sem_init(&hold_classb, 0, 1);
-  sem_init(&hold_anyone, 0, 1);
+  sem_init(&mutex, 0, 3);
 
   /* Read in the data file and initialize the student array */
   FILE *fp;
 
-  if((fp=fopen(filename, "r")) == NULL) 
+  if ((fp = fopen(filename, "r")) == NULL)
   {
     printf("Cannot open input file %s for reading.\n", filename);
     exit(1);
   }
 
   int i = 0;
-  while ( (fscanf(fp, "%d%d\n", &(si[i].arrival_time), &(si[i].question_time))!=EOF) && i < MAX_STUDENTS ) 
+  while ((fscanf(fp, "%d%d\n", &(si[i].arrival_time), &(si[i].question_time)) != EOF) && i < MAX_STUDENTS)
   {
     i++;
   }
 
- fclose(fp);
- return i;
+  fclose(fp);
+  return i;
 }
 
 /* Code executed by professor to simulate taking a break 
  * You do not need to add anything here.  
  */
-static void take_break() 
+static void take_break()
 {
   printf("The professor is taking a break now.\n");
   sleep(5);
-  assert( students_in_office == 0 );
+  assert(students_in_office == 0);
   students_since_break = 0;
 }
 
 /* Code for the professor thread. This is fully implemented except for synchronization
  * with the students.  See the comments within the function for details.
  */
-void *professorthread(void *junk) 
+void *professorthread(void *junk)
 {
   printf("The professor arrived and is starting his office hours\n");
 
   /* Loop while waiting for students to arrive. */
-  while (1) 
+  while (1)
   {
 
     /* TODO */
     /* Add code here to handle the student's request.             */
     /* Currently the body of the loop is empty. There's           */
     /* no communication between professor and students, i.e. all  */
-    /* students are admitted without regard of the number         */ 
+    /* students are admitted without regard of the number         */
     /* of available seats, which class a student is in,           */
     /* and whether the professor needs a break. You need to add   */
     /* all of this.                                               */
-
   }
   pthread_exit(NULL);
 }
-
 
 /* Code executed by a class A student to enter the office.
  * You have to implement this.  Do not delete the assert() statements,
  * but feel free to add your own.
  */
-void classa_enter() 
+void classa_enter()
 {
   /* TODO */
   /* Request permission to enter the office.  You might also want to add  */
   /* synchronization for the simulations variables below                  */
   /*  YOUR CODE HERE.                                                     */
-
-  // If there is someone from class b in the office...hold this thread.
-  if(classb_inoffice != 0)
+  while (!A_mayenter)
   {
-    sem_wait(&hold_classa);
   }
+  if (A_mayenter)
+  {
+    sem_wait(&mutex);
+    B_mayenter = 0;
 
-  students_in_office += 1;
-  students_since_break += 1;
-  classa_inoffice += 1;
-
+    students_in_office += 1;
+    students_since_break += 1;
+    classa_inoffice += 1;
+  }
 }
 
 /* Code executed by a class B student to enter the office.
  * You have to implement this.  Do not delete the assert() statements,
  * but feel free to add your own.
  */
-void classb_enter() 
+void classb_enter()
 {
   /* TODO */
   /* Request permission to enter the office.  You might also want to add  */
   /* synchronization for the simulations variables below                  */
-  /*  YOUR CODE HERE.                                                     */ 
-
-  // If there is someone from class a in the office... hold this thread
-  if(classa_inoffice != 0)
-  { 
-    int val;
-    sem_wait(&hold_classb);
+  /*  YOUR CODE HERE.                                                     */
+  while (!B_mayenter)
+  {
   }
+  if (B_mayenter)
+  {
+    sem_wait(&mutex);
+    A_mayenter = 0;
 
-  students_in_office += 1;
-  students_since_break += 1;
-  classb_inoffice += 1;
-
+    students_in_office += 1;
+    students_since_break += 1;
+    classb_inoffice += 1;
+  }
 }
 
 /* Code executed by a student to simulate the time he spends in the office asking questions
  * You do not need to add anything here.  
  */
-static void ask_questions(int t) 
+static void ask_questions(int t)
 {
   sleep(t);
 }
-
 
 /* Code executed by a class A student when leaving the office.
  * You need to implement this.  Do not delete the assert() statements,
  * but feel free to add as many of your own as you like.
  */
-static void classa_leave() 
+static void classa_leave()
 {
   /* 
    *  TODO
    *  YOUR CODE HERE. 
    */
-
+  sem_post(&mutex);
   students_in_office -= 1;
   classa_inoffice -= 1;
-
-  // If no one from class a is in office, unblock class b from entering if it is blocked
-  int val;
-  sem_getvalue(&hold_classb, &val);
-  if(classa_inoffice == 0 && val == 0)
+  if (classa_inoffice == 0)
   {
-    sem_post(&hold_classb);
+    B_mayenter = 1;
   }
-
 }
 
 /* Code executed by a class B student when leaving the office.
  * You need to implement this.  Do not delete the assert() statements,
  * but feel free to add as many of your own as you like.
  */
-static void classb_leave() 
+static void classb_leave()
 {
   /* 
    * TODO
    * YOUR CODE HERE. 
    */
-
+  sem_post(&mutex);
   students_in_office -= 1;
   classb_inoffice -= 1;
-
-  // If no one from class b is in office, unblock class a from entering if it is blocked
-  int val;
-  sem_getvalue(&hold_classa, &val);
-  if(classb_inoffice == 0 && val == 0)
+  if (classb_inoffice == 0)
   {
-    sem_post(&hold_classa);
+    A_mayenter = 1;
   }
 }
 
@@ -234,9 +217,9 @@ static void classb_leave()
  * You do not need to change anything here, but you can add
  * debug statements to help you during development/debugging.
  */
-void* classa_student(void *si) 
+void *classa_student(void *si)
 {
-  student_info *s_info = (student_info*)si;
+  student_info *s_info = (student_info *)si;
 
   /* enter office */
   classa_enter();
@@ -246,15 +229,15 @@ void* classa_student(void *si)
   assert(students_in_office <= MAX_SEATS && students_in_office >= 0);
   assert(classa_inoffice >= 0 && classa_inoffice <= MAX_SEATS);
   assert(classb_inoffice >= 0 && classb_inoffice <= MAX_SEATS);
-  assert(classb_inoffice == 0 );
-  
+  assert(classb_inoffice == 0);
+
   /* ask questions  --- do not make changes to the 3 lines below*/
   printf("Student %d from class A starts asking questions for %d minutes\n", s_info->student_id, s_info->question_time);
   ask_questions(s_info->question_time);
   printf("Student %d from class A finishes asking questions and prepares to leave\n", s_info->student_id);
 
   /* leave office */
-  classa_leave();  
+  classa_leave();
 
   printf("Student %d from class A leaves the office\n", s_info->student_id);
 
@@ -269,9 +252,9 @@ void* classa_student(void *si)
  * You do not need to change anything here, but you can add
  * debug statements to help you during development/debugging.
  */
-void* classb_student(void *si) 
+void *classb_student(void *si)
 {
-  student_info *s_info = (student_info*)si;
+  student_info *s_info = (student_info *)si;
 
   /* enter office */
   classb_enter();
@@ -281,14 +264,14 @@ void* classb_student(void *si)
   assert(students_in_office <= MAX_SEATS && students_in_office >= 0);
   assert(classb_inoffice >= 0 && classb_inoffice <= MAX_SEATS);
   assert(classa_inoffice >= 0 && classa_inoffice <= MAX_SEATS);
-  assert(classa_inoffice == 0 );
+  assert(classa_inoffice == 0);
 
   printf("Student %d from class B starts asking questions for %d minutes\n", s_info->student_id, s_info->question_time);
   ask_questions(s_info->question_time);
   printf("Student %d from class B finishes asking questions and prepares to leave\n", s_info->student_id);
 
   /* leave office */
-  classb_leave();        
+  classb_leave();
 
   printf("Student %d from class B leaves the office\n", s_info->student_id);
 
@@ -302,7 +285,7 @@ void* classb_student(void *si)
 /* Main function sets up simulation and prints report
  * at the end.
  */
-int main(int nargs, char **args) 
+int main(int nargs, char **args)
 {
   int i;
   int result;
@@ -313,14 +296,14 @@ int main(int nargs, char **args)
   pthread_t student_tid[MAX_STUDENTS];
   student_info s_info[MAX_STUDENTS];
 
-  if (nargs != 2) 
+  if (nargs != 2)
   {
     printf("Usage: officehour <name of inputfile>\n");
     return EINVAL;
   }
 
   num_students = initialize(s_info, args[1]);
-  if (num_students > MAX_STUDENTS || num_students <= 0) 
+  if (num_students > MAX_STUDENTS || num_students <= 0)
   {
     printf("Error:  Bad number of student threads. "
            "Maybe there was a problem with your input file?\n");
@@ -328,23 +311,23 @@ int main(int nargs, char **args)
   }
 
   printf("Starting officehour simulation with %d students ...\n",
-    num_students);
+         num_students);
 
   result = pthread_create(&professor_tid, NULL, professorthread, NULL);
 
-  if (result) 
+  if (result)
   {
     printf("officehour:  pthread_create failed for professor: %s\n", strerror(result));
     exit(1);
   }
 
-  for (i=0; i < num_students; i++) 
+  for (i = 0; i < num_students; i++)
   {
 
     s_info[i].student_id = i;
     sleep(s_info[i].arrival_time);
     // Remove later
-                
+
     student_type = random() % 2;
 
     if (student_type == CLASSA)
@@ -356,16 +339,16 @@ int main(int nargs, char **args)
       result = pthread_create(&student_tid[i], NULL, classb_student, (void *)&s_info[i]);
     }
 
-    if (result) 
+    if (result)
     {
-      printf("officehour: thread_fork failed for student %d: %s\n", 
-            i, strerror(result));
+      printf("officehour: thread_fork failed for student %d: %s\n",
+             i, strerror(result));
       exit(1);
     }
   }
 
   /* wait for all student threads to finish */
-  for (i = 0; i < num_students; i++) 
+  for (i = 0; i < num_students; i++)
   {
     pthread_join(student_tid[i], &status);
   }
