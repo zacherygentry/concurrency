@@ -132,11 +132,11 @@ void classa_enter()
   while (classb_inoffice != 0)
   {
   }
-  sem_wait(&mutex);
+    sem_wait(&mutex);
 
-  students_in_office += 1;
-  students_since_break += 1;
-  classa_inoffice += 1;
+    students_in_office += 1;
+    students_since_break += 1;
+    classa_inoffice += 1;
 }
 
 /* Code executed by a class B student to enter the office.
