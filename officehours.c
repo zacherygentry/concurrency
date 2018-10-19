@@ -120,7 +120,7 @@ void *professorthread(void *junk)
     /* and whether the professor needs a break. You need to add   */
     /* all of this.                                               */
 
-    if (students_since_break == professor_LIMIT)
+    if (students_since_break >= professor_LIMIT)
     {
       A_mayenter = 0;
       B_mayenter = 0;
