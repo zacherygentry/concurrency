@@ -64,7 +64,7 @@ static int initialize(student_info *si, char *filename)
    * other variables you might use) here
    */
 
-  sem_init(&mutex, 0, 3);
+  sem_init(&mutex, 0, MAX_SEATS);
 
   /* Read in the data file and initialize the student array */
   FILE *fp;
@@ -129,18 +129,14 @@ void classa_enter()
   /* Request permission to enter the office.  You might also want to add  */
   /* synchronization for the simulations variables below                  */
   /*  YOUR CODE HERE.                                                     */
-  while (!A_mayenter)
+  while (classb_inoffice != 0)
   {
   }
-  if (A_mayenter)
-  {
-    sem_wait(&mutex);
-    B_mayenter = 0;
+  sem_wait(&mutex);
 
-    students_in_office += 1;
-    students_since_break += 1;
-    classa_inoffice += 1;
-  }
+  students_in_office += 1;
+  students_since_break += 1;
+  classa_inoffice += 1;
 }
 
 /* Code executed by a class B student to enter the office.
@@ -153,18 +149,14 @@ void classb_enter()
   /* Request permission to enter the office.  You might also want to add  */
   /* synchronization for the simulations variables below                  */
   /*  YOUR CODE HERE.                                                     */
-  while (!B_mayenter)
+  while (classa_inoffice != 0)
   {
   }
-  if (B_mayenter)
-  {
-    sem_wait(&mutex);
-    A_mayenter = 0;
+  sem_wait(&mutex);
 
-    students_in_office += 1;
-    students_since_break += 1;
-    classb_inoffice += 1;
-  }
+  students_in_office += 1;
+  students_since_break += 1;
+  classb_inoffice += 1;
 }
 
 /* Code executed by a student to simulate the time he spends in the office asking questions
@@ -185,9 +177,9 @@ static void classa_leave()
    *  TODO
    *  YOUR CODE HERE. 
    */
-  sem_post(&mutex);
   students_in_office -= 1;
   classa_inoffice -= 1;
+  sem_post(&mutex);
   if (classa_inoffice == 0)
   {
     B_mayenter = 1;
@@ -204,9 +196,9 @@ static void classb_leave()
    * TODO
    * YOUR CODE HERE. 
    */
-  sem_post(&mutex);
   students_in_office -= 1;
   classb_inoffice -= 1;
+  sem_post(&mutex);
   if (classb_inoffice == 0)
   {
     A_mayenter = 1;
@@ -225,6 +217,7 @@ void *classa_student(void *si)
   classa_enter();
 
   printf("Student %d from class A enters the office\n", s_info->student_id);
+  printf("Students in office: %d\n", students_in_office);
 
   assert(students_in_office <= MAX_SEATS && students_in_office >= 0);
   assert(classa_inoffice >= 0 && classa_inoffice <= MAX_SEATS);
@@ -240,6 +233,7 @@ void *classa_student(void *si)
   classa_leave();
 
   printf("Student %d from class A leaves the office\n", s_info->student_id);
+  printf("Students in office: %d\n", students_in_office);
 
   assert(students_in_office <= MAX_SEATS && students_in_office >= 0);
   assert(classb_inoffice >= 0 && classb_inoffice <= MAX_SEATS);
@@ -260,6 +254,7 @@ void *classb_student(void *si)
   classb_enter();
 
   printf("Student %d from class B enters the office\n", s_info->student_id);
+  printf("Students in office: %d\n", students_in_office);
 
   assert(students_in_office <= MAX_SEATS && students_in_office >= 0);
   assert(classb_inoffice >= 0 && classb_inoffice <= MAX_SEATS);
@@ -274,6 +269,7 @@ void *classb_student(void *si)
   classb_leave();
 
   printf("Student %d from class B leaves the office\n", s_info->student_id);
+  printf("Students in office: %d\n", students_in_office);
 
   assert(students_in_office <= MAX_SEATS && students_in_office >= 0);
   assert(classb_inoffice >= 0 && classb_inoffice <= MAX_SEATS);
