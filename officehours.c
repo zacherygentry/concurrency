@@ -25,13 +25,13 @@
 
 /* TODO */
 /* Add your synchronization variables here */
-sem_t mutex; // Mutex for guarding critical regions
-pthread_mutex_t prof_lock;
+sem_t mutex;               // Mutex for guarding critical regions
+pthread_mutex_t prof_lock; // Lock for when the professor takes his break
 
-static int A_mayenter = 1;
-static int B_mayenter = 1;
-static int consecutive_class_counter = 0;
-static int lastClass; // The class the most previous student to leave the office belongs to. 0 for A, 1 for B
+static int A_mayenter = 1;                // Can class A enter?
+static int B_mayenter = 1;                // Can class B enter?
+static int consecutive_class_counter = 0; // Number of consecutive students from the same class
+static int lastClass;                     // The class the most previous student to leave the office belongs to. 0 for A, 1 for B
 
 /* Basic information about simulation.  They are printed/checked at the end 
  * and in assert statements during execution.
@@ -131,6 +131,7 @@ void *professorthread(void *junk)
       take_break();
       pthread_mutex_unlock(&prof_lock);
       A_mayenter = 1;
+      sleep(1);
       B_mayenter = 1;
     }
   }
@@ -155,6 +156,16 @@ void classa_enter()
   students_in_office += 1;
   students_since_break += 1;
   classa_inoffice += 1;
+  if (lastClass == CLASSA)
+  {
+    consecutive_class_counter += 1;
+  }
+  else
+  {
+    consecutive_class_counter = 1;
+  }
+  printf("\nConsec num of students: %d\n\n", consecutive_class_counter);
+  lastClass = CLASSA;
 }
 
 /* Code executed by a class B student to enter the office.
@@ -175,6 +186,16 @@ void classb_enter()
   students_in_office += 1;
   students_since_break += 1;
   classb_inoffice += 1;
+  if (lastClass == CLASSB)
+  {
+    consecutive_class_counter += 1;
+  }
+  else
+  {
+    consecutive_class_counter = 1;
+  }
+  printf("\nConsec num of students: %d\n\n", consecutive_class_counter);
+  lastClass = CLASSB;
 }
 
 /* Code executed by a student to simulate the time he spends in the office asking questions
