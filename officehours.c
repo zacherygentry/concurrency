@@ -26,11 +26,11 @@
 /* TODO */
 /* Add your synchronization variables here */
 sem_t mutex; // Mutex for guarding critical regions
-pthread_mutex_t prof_lock;
+pthread_mutex_t prof_lock; // Used for professor's breaks
 
-static int A_mayenter = 1;
-static int B_mayenter = 1;
-static int consecutive_class_counter = 0;
+static int A_mayenter = 1; // Can a student from class A enter office?
+static int B_mayenter = 1;// Can a student from class B enter office?
+static int consecutive_class_counter = 0; // Consec number of students from specific class entering the office
 static int lastClass; // The class the most previous student to leave the office belongs to. 0 for A, 1 for B
 
 /* Basic information about simulation.  They are printed/checked at the end 
@@ -67,8 +67,8 @@ static int initialize(student_info *si, char *filename)
    * other variables you might use) here
    */
 
-  sem_init(&mutex, 0, MAX_SEATS);
-  pthread_mutex_init(&prof_lock, NULL);
+  sem_init(&mutex, 0, MAX_SEATS); // Limits # of students in office to MAX_SEATS
+  pthread_mutex_init(&prof_lock, NULL); // Prof breaks
 
   /* Read in the data file and initialize the student array */
   FILE *fp;
@@ -120,16 +120,21 @@ void *professorthread(void *junk)
     /* and whether the professor needs a break. You need to add   */
     /* all of this.                                               */
 
+    // Forces professor to take a break once the professor_LIMIT is reached
     if (students_since_break >= professor_LIMIT)
     {
+      // No students may enter now
       A_mayenter = 0;
       B_mayenter = 0;
+      // Ensures all students in the office leave before he takes a break
       while (students_in_office > 0)
       {
       }
+      // Locks resources and takes the break
       pthread_mutex_lock(&prof_lock);
       take_break();
       pthread_mutex_unlock(&prof_lock);
+      //Professor is done with break and students may now enter
       A_mayenter = 1;
       B_mayenter = 1;
     }
@@ -147,6 +152,8 @@ void classa_enter()
   /* Request permission to enter the office.  You might also want to add  */
   /* synchronization for the simulations variables below                  */
   /*  YOUR CODE HERE.                                                     */
+
+  // If there is a studnet from class B in the office or A cannot enter, hold
   while (classb_inoffice != 0 || A_mayenter == 0)
   {
   }
@@ -167,6 +174,7 @@ void classb_enter()
   /* Request permission to enter the office.  You might also want to add  */
   /* synchronization for the simulations variables below                  */
   /*  YOUR CODE HERE.                                                     */
+  // If there is a studnet from class A in the office or B cannot enter, hold
   while (classa_inoffice != 0 || B_mayenter == 0)
   {
   }
@@ -198,6 +206,7 @@ static void classa_leave()
   students_in_office -= 1;
   classa_inoffice -= 1;
   lastClass = CLASSA;
+  // Increment semaphore for class A and B
   sem_post(&mutex);
 }
 
@@ -214,6 +223,7 @@ static void classb_leave()
   students_in_office -= 1;
   classb_inoffice -= 1;
   lastClass = CLASSB;
+  // Increment semaphore for class A and B
   sem_post(&mutex);
 }
 
