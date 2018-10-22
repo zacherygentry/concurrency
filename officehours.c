@@ -26,12 +26,12 @@
 /* TODO */
 /* Add your synchronization variables here */
 sem_t mutex; // Mutex for guarding critical regions
+sem_t hold_class;
 pthread_mutex_t prof_lock;
 
-static int A_mayenter = 1;
-static int B_mayenter = 1;
-static int consecutive_class_counter = 0;
-static int lastClass; // The class the most previous student to leave the office belongs to. 0 for A, 1 for B
+static int consecutive_class_counter_A = 0;
+static int consecutive_class_counter_B = 0;
+static int prof_is_on_break = 0;
 
 /* Basic information about simulation.  They are printed/checked at the end 
  * and in assert statements during execution.
@@ -67,7 +67,8 @@ static int initialize(student_info *si, char *filename)
    * other variables you might use) here
    */
 
-  sem_init(&mutex, 0, MAX_SEATS);
+  //sem_init(&mutex, 0, MAX_SEATS);
+  sem_init(&hold_class, 0, 0);
   pthread_mutex_init(&prof_lock, NULL);
 
   /* Read in the data file and initialize the student array */
@@ -122,17 +123,15 @@ void *professorthread(void *junk)
 
     if (students_since_break >= professor_LIMIT)
     {
-      A_mayenter = 0;
-      B_mayenter = 0;
+      prof_is_on_break = 1;
       while (students_in_office > 0)
       {
       }
       pthread_mutex_lock(&prof_lock);
       take_break();
       pthread_mutex_unlock(&prof_lock);
-      A_mayenter = 1;
-      B_mayenter = 1;
     }
+    prof_is_on_break = 0;
   }
   pthread_exit(NULL);
 }
@@ -147,14 +146,16 @@ void classa_enter()
   /* Request permission to enter the office.  You might also want to add  */
   /* synchronization for the simulations variables below                  */
   /*  YOUR CODE HERE.                                                     */
-  while (classb_inoffice != 0 || A_mayenter == 0)
+  if (classb_inoffice != 0 || classa_inoffice >= MAX_SEATS || prof_is_on_break == 1 || consecutive_class_counter_A >= 5)
   {
+    sem_wait(&hold_class);
   }
-  sem_wait(&mutex);
 
+  consecutive_class_counter_B = 0;
   students_in_office += 1;
   students_since_break += 1;
   classa_inoffice += 1;
+  consecutive_class_counter_A += 1;
 }
 
 /* Code executed by a class B student to enter the office.
@@ -167,14 +168,16 @@ void classb_enter()
   /* Request permission to enter the office.  You might also want to add  */
   /* synchronization for the simulations variables below                  */
   /*  YOUR CODE HERE.                                                     */
-  while (classa_inoffice != 0 || B_mayenter == 0)
+ if (classa_inoffice != 0 || classb_inoffice >= MAX_SEATS || prof_is_on_break == 1 || consecutive_class_counter_B >= 5)
   {
+    sem_wait(&hold_class);
   }
-  sem_wait(&mutex);
 
+  consecutive_class_counter_A = 0;
   students_in_office += 1;
   students_since_break += 1;
   classb_inoffice += 1;
+  consecutive_class_counter_B += 1;
 }
 
 /* Code executed by a student to simulate the time he spends in the office asking questions
@@ -197,8 +200,7 @@ static void classa_leave()
    */
   students_in_office -= 1;
   classa_inoffice -= 1;
-  lastClass = CLASSA;
-  sem_post(&mutex);
+  sem_post(&hold_class);
 }
 
 /* Code executed by a class B student when leaving the office.
@@ -213,8 +215,7 @@ static void classb_leave()
    */
   students_in_office -= 1;
   classb_inoffice -= 1;
-  lastClass = CLASSB;
-  sem_post(&mutex);
+  sem_post(&hold_class);
 }
 
 /* Main code for class A student threads.  
